@@ -1,0 +1,21 @@
+# C-10+ target test acc: 95.49%
+model: densenet100
+dataset_name: cifar10
+
+batch_size: 64
+epochs: 300
+checkpoints: 5
+save_model: true
+shuffle: false
+log_interval: 10
+data_augmentation: true
+
+optimizer: sgd
+lr: 0.1
+nesterov: true
+momentum: 0.9
+weight_decay: 0.0001
+dampening: 0
+lr_scheduler: multi_step
+steps_list: [0.5, 0.75]
+gamma: 0.1

@@ -109,6 +109,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+env*/
 
 # Spyder project settings
 .spyderproject
@@ -127,3 +128,21 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+datasets/*
+.zip
+**.tar*
+**.zip
+.DS_Store
+
+cluster/
+results/scores/**
+results/metrics/**
+results/figures/**
+results/*/**
+
+tensors/**/**
+tensors*/
+results*/
+pre_trained/*
+!*/.gitkeep

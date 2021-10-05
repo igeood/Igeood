@@ -241,19 +241,5 @@ class DenseNet3_2(DenseNet3):
 
 
 def DenseNetBC100(num_c):
-    """Expected error rate in CIFAR-10 is 5.92% (94.08% acc)
-    and 95.49% acc with translation and mirroing data augmentation."""
     L = 100
     return DenseNet3(L, num_c, bottleneck=True)
-
-
-def DenseNet100_2(num_c):
-    L = 100
-    return DenseNet3_2(L, num_c)
-
-
-if __name__ == "__main__":
-    net = DenseNetBC100(10)
-    pytorch_total_params = sum(p.numel() for p in net.parameters() if p.requires_grad)
-    print(pytorch_total_params)  # 769162 trainable params or 0.8M
-    print(len(net.state_dict().keys()))

@@ -261,14 +261,3 @@ def ResNet101(num_c):
 
 def ResNet152(num_c):
     return ResNet(Bottleneck, [3, 8, 36, 3], num_classes=num_c)
-
-
-def test_resnet18():
-    net = ResNet18(10)
-    y = net(Variable(torch.randn(1, 3, 32, 32)))
-    print(y)
-    print(y.size())
-
-
-if __name__ == "__main__":
-    test_resnet18()

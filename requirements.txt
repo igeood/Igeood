@@ -1,0 +1,10 @@
+numpy
+pandas
+scikit-learn
+torch
+torchvision
+pillow
+tqdm
+scipy
+pyyaml
+optuna

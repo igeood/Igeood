@@ -42,10 +42,10 @@ tar -xvzf densenet100.pth.tar.gz
 # DenseNet-BC trained on SVHN
 wget https://www.dropbox.com/s/9ol1h2tb3xjdpp1/densenet_svhn.pth
 
-
 # ResNet34 trained on CIFAR-10
 wget https://www.dropbox.com/s/ynidbn7n7ccadog/resnet_cifar10.pth
 # ResNet34 trained on CIFAR-100
 wget https://www.dropbox.com/s/yzfzf4bwqe4du6w/resnet_cifar100.pth
 # ResNet34 trained on SVHN
 wget https://www.dropbox.com/s/uvgpgy9pu7s9ps2/resnet_svhn.pth
+cd ..

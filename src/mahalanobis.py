@@ -1,20 +1,15 @@
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
-
 import utils.data_and_nn_loader as dl
 import utils.evaluation_metrics as em
 import utils.file_manager as fm
-from src.ensemble_method import *
-from utils.logger import logger
-from src.estimators import hidden_feature_estimator
-from src.ensemble_method import (
-    MeanScore,
-    WeightRegression,
-)
-from utils.logger import timing
+from torch.autograd import Variable
+from utils.logger import logger, timing
 
+from src.ensemble_method import *
+from src.ensemble_method import MeanScore, WeightRegression
+from src.estimators import hidden_feature_estimator
 
 cudnn.benchmark = True
 

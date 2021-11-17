@@ -1,19 +1,21 @@
 import argparse
+import itertools
+
+import torch.multiprocessing
+
+import utils.data_and_nn_loader as dl
 from src.adv_samples import generate_fgsm_adv_samples
 from src.ensemble_method import AdvWeightRegression, WeightRegression
+from src.igeood import main as igeood_main
 from src.logits_benchmark import main as logits_main
 from src.mahalanobis import main as mahalanobis_main
-from src.igeood import main as igeood_main
-import utils.data_and_nn_loader as dl
-import torch.multiprocessing
 from utils.logger import logger
-import itertools
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 parser = argparse.ArgumentParser(
-    description="Reproduce results from IGEOOD: Information Geometry Approach to Out-of-Distribution Detection paper.",
-    epilog="example: python eval.py igeoodlogits -nn densenet10 -o Imagenet_resize -eps 0.0015 -T 5 -gpu 0",
+    description="Reproduce results from IGEOOD: An Information Geometry Approach to Out-of-Distribution Detection.",
+    epilog="example: python eval.py igeoodlogits -nn densenet10 -o Imagenet_resize -e 0.0015 -T 5 -gpu 0",
     allow_abbrev=True,
 )
 parser.add_argument(
@@ -22,17 +24,20 @@ parser.add_argument(
     type=str,
     help="OOD detection method",
     choices=[
-        "igeood_logits",
-        "igeoodlogits",
+        "igeood",
         "igeood_plus",
         "igeood_adv",
-        "igeood",
         "igeood_adv_plus",
+        "min_igeoodlogits",
+        "igeood_logits",
+        "igeoodlogits",
         "msp",
         "odin",
         "energy",
         "mahalanobis",
         "mahalanobis_adv",
+        "kl_score_sum",
+        "kl_score_min",
     ],
 )
 parser.add_argument(
@@ -57,24 +62,6 @@ parser.add_argument(
     default="Imagenet",
     type=str,
     help="Out-of-distribution dataset name",
-    choices=[
-        "Imagenet_resize",
-        "LSUN_resize",
-        "CIFAR10",
-        "CIFAR100",
-        "SVHN",
-        "iSUN",
-        "ADVdensenet10",
-        "ADVdensenet100",
-        "ADVdensenet_svhn",
-        "ADVresnet_cifar10",
-        "ADVresnet_cifar100",
-        "ADVresnet_svhn",
-        "Places365",
-        "Textures",
-        "Chars74K",
-        "gaussian_noise_dataset",
-    ],
 )
 parser.add_argument(
     "-eps",
@@ -129,7 +116,6 @@ parser.add_argument(
     help="GPU index",
 )
 
-
 if __name__ == "__main__":
     args = parser.parse_args()
     logger.info(args)
@@ -153,8 +139,6 @@ if __name__ == "__main__":
     if eps_list is None:
         eps_list = [eps]
 
-    print("rewrite?", rewrite)
-
     in_dataset_name = dl.get_in_dataset_name(nn_name)
 
     for temperature, eps in itertools.product(temperature_list, eps_list):
@@ -164,6 +148,9 @@ if __name__ == "__main__":
             "energy",
             "igeood_logits",
             "igeoodlogits",
+            "min_igeoodlogits",
+            "kl_score_sum",
+            "kl_score_min",
         ]:
             logits_main(
                 method,
@@ -209,6 +196,7 @@ if __name__ == "__main__":
                 in_dataset_name,
                 out_dataset_name,
                 out_dataset_name,
+                out_dataset_name,
                 temperature,
                 eps,
                 batch_size,
@@ -225,6 +213,7 @@ if __name__ == "__main__":
                 nn_name,
                 in_dataset_name,
                 out_dataset_name,
+                None,
                 None,
                 temperature,
                 eps,
@@ -243,6 +232,7 @@ if __name__ == "__main__":
                 in_dataset_name,
                 out_dataset_name,
                 "ADV",
+                None,
                 temperature,
                 eps,
                 batch_size,
@@ -256,6 +246,7 @@ if __name__ == "__main__":
                 nn_name,
                 in_dataset_name,
                 out_dataset_name,
+                None,
                 None,
                 temperature,
                 eps,

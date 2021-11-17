@@ -9,15 +9,21 @@ from utils.logger import timing
 import numpy as np
 import src.logits_benchmark
 import itertools
-from hyperparameter_tuning.utils import get_method, report_results, write_results
+from hyperparameter_tuning.utils import get_method, report_results, write_results, DATASETS
 from hyperparameter_tuning.parser import parser
+
+# EPS = [0, 0.0005, 0.001, 0.0014, 0.0015, 0.002, 0.0025, 0.003, 0.0035, 0.004]
+# TEMPERATURTE = [1, 2, 5, 10, 100, 500, 1000]
 
 
 def temperature_objective(trial: trial_module.Trial):
+    # sourcery skip: inline-immediately-returned-variable
     temperature = trial.suggest_float(name="temperature", low=1, high=1000, step=0.1)
 
-    in_scores = metric(in_logits, temperature, in_centroids).detach().cpu().numpy()
-    out_scores = metric(out_logits, temperature, in_centroids).detach().cpu().numpy()
+    in_scores = metric(in_logits, temperature, args.in_centroids).detach().cpu().numpy()
+    out_scores = (
+        metric(out_logits, temperature, args.in_centroids).detach().cpu().numpy()
+    )
 
     fpr_at_tpr = em.compute_metrics(in_scores, out_scores, fpr_only=True)
 
@@ -27,7 +33,7 @@ def temperature_objective(trial: trial_module.Trial):
 def tune_temperature(
     metric_fn, nn_name, in_dataset_name, out_dataset_name, gpu, **kwargs
 ):
-    global metric, in_logits, out_logits, in_centroids, args
+    global metric, in_logits, out_logits, args
     sampler = optuna.samplers.TPESampler(seed=args.seed)
     study = optuna.create_study(
         study_name="temperature tuning", direction="minimize", sampler=sampler
@@ -45,7 +51,7 @@ def tune_temperature(
             nn_name, out_dataset_name, args.batch_size, gpu
         )
 
-    in_centroids = dl.load_logits_centroid(nn_name, in_dataset_name).to(gpu)
+    # in_centroids = dl.load_logits_centroid(nn_name, in_dataset_name).to(gpu)
 
     study.optimize(
         temperature_objective,
@@ -59,24 +65,27 @@ def tune_temperature(
 
 
 def eps_objective(trial: trial_module.Trial, gpu, temperature=1):
+    # sourcery skip: inline-immediately-returned-variable
     eps = trial.suggest_float(name="eps", low=0, high=0.004, step=1e-4)
 
     in_logits = input_pre_processing(
-        metric, model, dataloader_in, nn, temperature, eps, gpu, in_centroids
+        metric, model, dataloader_in, nn, temperature, eps, gpu, args.in_centroids
     )
     out_logits = input_pre_processing(
-        metric, model, dataloader_out, nn, temperature, eps, gpu, in_centroids
+        metric, model, dataloader_out, nn, temperature, eps, gpu, args.in_centroids
     )
 
-    in_scores = metric(in_logits, temperature, in_centroids).detach().cpu().numpy()
-    out_scores = metric(out_logits, temperature, in_centroids).detach().cpu().numpy()
+    in_scores = metric(in_logits, temperature, args.in_centroids).detach().cpu().numpy()
+    out_scores = (
+        metric(out_logits, temperature, args.in_centroids).detach().cpu().numpy()
+    )
     fpr_at_tpr = em.compute_metrics(in_scores, out_scores, fpr_only=True)
 
     return fpr_at_tpr
 
 
 def tune_eps(metric_fn, nn_name, in_dataset_name, out_dataset_name, gpu, **kwargs):
-    global metric, nn, temperature, in_centroids, model, dataloader_in, dataloader_out
+    global metric, nn, temperature, model, dataloader_in, dataloader_out
     # sampler = optuna.samplers.TPESampler(seed=args.seed)
     search_space = {"eps": list(np.linspace(0, 0.004, 21).round(4))}
     sampler = optuna.samplers.GridSampler(search_space)
@@ -101,7 +110,7 @@ def tune_eps(metric_fn, nn_name, in_dataset_name, out_dataset_name, gpu, **kwarg
     dataloader_out = torch.utils.data.DataLoader(
         dataset_out, batch_size=args.batch_size
     )
-    in_centroids = dl.load_logits_centroid(nn_name, in_dataset_name).to(gpu)
+    # in_centroids = dl.load_logits_centroid(nn_name, in_dataset_name).to(gpu)
 
     study.optimize(
         lambda trial: eps_objective(trial, gpu, temperature), n_trials=21, n_jobs=1
@@ -115,14 +124,16 @@ def all_objective(trial: trial_module.Trial, gpu):
     temperature = trial.suggest_float(name="temperature", low=1, high=1000, step=0.1)
 
     in_logits = input_pre_processing(
-        metric, model, dataloader_in, nn, temperature, eps, gpu, in_centroids
+        metric, model, dataloader_in, nn, temperature, eps, gpu, args.in_centroids
     )
     out_logits = input_pre_processing(
-        metric, model, dataloader_out, nn, temperature, eps, gpu, in_centroids
+        metric, model, dataloader_out, nn, temperature, eps, gpu, args.in_centroids
     )
 
-    in_scores = metric(in_logits, temperature, in_centroids).detach().cpu().numpy()
-    out_scores = metric(out_logits, temperature, in_centroids).detach().cpu().numpy()
+    in_scores = metric(in_logits, temperature, args.in_centroids).detach().cpu().numpy()
+    out_scores = (
+        metric(out_logits, temperature, args.in_centroids).detach().cpu().numpy()
+    )
     fpr_at_tpr = em.compute_metrics(in_scores, out_scores, fpr_only=True)
 
     return fpr_at_tpr
@@ -132,7 +143,7 @@ def all_objective(trial: trial_module.Trial, gpu):
 def tune_all_params(
     metric_fn, nn_name, in_dataset_name, out_dataset_name, gpu, **kwargs
 ):
-    global metric, nn, temperature, in_centroids, model, dataloader_in, dataloader_out
+    global metric, nn, temperature, model, dataloader_in, dataloader_out
     sampler = optuna.samplers.TPESampler(seed=args.seed, multivariate=True)
     study = optuna.create_study(
         study_name="eps and temperature tuning", direction="minimize", sampler=sampler
@@ -152,7 +163,6 @@ def tune_all_params(
     dataloader_out = torch.utils.data.DataLoader(
         dataset_out, batch_size=args.batch_size
     )
-    in_centroids = dl.load_logits_centroid(nn_name, in_dataset_name).to(gpu)
 
     study.optimize(lambda trial: all_objective(trial, gpu), n_trials=100, n_jobs=1)
     return study
@@ -235,6 +245,8 @@ def main_hyper_logits(args):
 
     if args.eval_datasets is None:
         args.eval_datasets = args.dataset_names
+    elif "all" in args.eval_datasets:
+        args.eval_datasets = DATASETS
 
     print(args)
     for args.method, args.nn_name, args.dataset_name in itertools.product(
@@ -242,6 +254,13 @@ def main_hyper_logits(args):
     ):
         print("Tune on", args.nn_name, args.dataset_name, args.method)
         args.in_dataset_name = dl.get_in_dataset_name(args.nn_name)
+        if "ige" in args.method:
+            distance_name = "fisher_rao_logits_distance"
+        elif "kl" in args.method:
+            distance_name = "kl_divergence_logits"
+        args.in_centroids = dl.load_logits_centroid(
+            args.nn_name, args.in_dataset_name, distance_name, True
+        ).to(args.gpu)
         args.metric = get_method(args.method)
         study = args.tune_fn(
             args.metric,

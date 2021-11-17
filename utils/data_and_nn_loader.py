@@ -26,42 +26,21 @@ from models.densenet import DenseNetBC100
 from models.resnet import ResNet34
 
 # Train set statistics
-transform_dict = {
-    "CIFAR10": (
-        (0.4913997, 0.4821584, 0.446531),
-        (0.2470323, 0.243485, 0.2615876),
-    ),
-    "CIFAR100": (
-        (0.5070752, 0.486549, 0.4409178),
-        (0.2673342, 0.2564384, 0.2761506),
-    ),
-    "SVHN": (
-        (0.4379793, 0.4439904, 0.4729508),
-        (0.1981116, 0.2011045, 0.1970895),
-    ),
-}
+transform_dict = dict()
+transform_dict["CIFAR10"] = (
+    (0.4913997, 0.4821584, 0.446531),
+    (0.2470323, 0.243485, 0.2615876),
+)
+transform_dict["CIFAR100"] = (
+    (0.5070752, 0.486549, 0.4409178),
+    (0.2673342, 0.2564384, 0.2761506),
+)
+transform_dict["SVHN"] = (
+    (0.4379793, 0.4439904, 0.4729508),
+    (0.1981116, 0.2011045, 0.1970895),
+)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def get_nn_name(architecture, in_dataset_name):
-    if architecture.lower() == "densenet":
-        if "CIFAR10" == in_dataset_name.upper():
-            nn_name = "densenet10"
-        elif "CIFAR100" == in_dataset_name.upper():
-            nn_name = "densenet100"
-        else:
-            nn_name = "densenet_svhn"
-    elif architecture.lower() == "densenet2":
-        if "CIFAR10" == in_dataset_name.upper():
-            nn_name = "densenet2_cifar10"
-        elif "CIFAR100" == in_dataset_name.upper():
-            nn_name = "densenet2_cifar100"
-        else:
-            nn_name = "densenet2_svhn"
-    elif architecture.lower() == "resnet":
-        nn_name = "{}_{}".format(architecture.lower(), in_dataset_name.lower())
-    return nn_name
 
 
 def transform_statistics(dataset_name):
@@ -161,8 +140,7 @@ class CustomTensorDataset(torch.utils.data.Dataset):
 def load_test_dataset(name, transform_dataset, transform=transform_statistics):
     if transform is None or transform_dataset is None:
         transform = transform_tensor
-
-    if name.upper() == "PLACES365":
+    elif name.upper() == "PLACES365":
         # original size: 3x256x256
         # original length 36500
         pre_transform = torchvision.transforms.Resize(32)
@@ -349,8 +327,10 @@ def gradient_trasform(in_dataset_name):
 def load_pre_trained_nn(nn_name, gpu=None):
     if type(gpu) == int:
         map_location = torch.device("cuda:{}".format(gpu))
-    else:
+    elif gpu is None:
         map_location = torch.device("cpu")
+    else:
+        map_location = gpu
     num_c = get_num_classes(get_in_dataset_name(nn_name))
     if "densenet" in nn_name:
         model = DenseNetBC100(num_c)
@@ -390,6 +370,21 @@ def get_in_dataset_name(nn_name):
         return "CIFAR100"
 
 
+def get_nn_name(architecture, in_dataset_name):
+    if architecture.lower() == "densenet":
+        if "CIFAR10" == in_dataset_name.upper():
+            nn_name = "densenet10"
+        elif "CIFAR100" == in_dataset_name.upper():
+            nn_name = "densenet100"
+        else:
+            nn_name = "densenet_svhn"
+    elif architecture.lower() == "resnet":
+        nn_name = "{}_{}".format(architecture.lower(), in_dataset_name.lower())
+    else:
+        return
+    return nn_name
+
+
 def get_number_channels(dataset_name):
     if "MNIST" in dataset_name.upper():
         return 1
@@ -421,7 +416,7 @@ def pred_loop(model, dataloader, gpu, *args, **kwargs):
     with torch.no_grad():
         for (data, target) in tqdm(dataloader):
             if gpu is not None:
-                data = data.cuda(gpu)
+                data = data.to(gpu)
             pred = model(data, *args, **kwargs)
             logits.append(pred.detach().cpu())
             targets.append(target.detach().cpu().reshape(-1, 1))
@@ -429,6 +424,30 @@ def pred_loop(model, dataloader, gpu, *args, **kwargs):
     logits = torch.vstack(logits)
     targets = torch.vstack(targets).reshape(-1)
     return logits, targets
+
+
+def hidden_features_pred_loop(model, dataloader, gpu, *args, **kwargs):
+    features = {}
+    targets = []
+    with torch.no_grad():
+        for idx, (data, target) in enumerate(tqdm(dataloader)):
+            if gpu is not None:
+                data = data.to(gpu)
+            logits, out_features = model.feature_list(data)
+            for i, out_feature in enumerate(out_features):
+                if idx == 0:
+                    features[i] = []
+                out_feature = out_feature.reshape(
+                    out_feature.shape[0], out_feature.shape[1], -1
+                )
+                out_feature = torch.mean(out_feature, 2)
+                features[i].append(out_feature)
+            targets.append(target.detach().cpu().reshape(-1, 1))
+
+    for k in features:
+        features[k] = torch.vstack(features[k])
+    targets = torch.vstack(targets).reshape(-1)
+    return features, targets
 
 
 def get_and_save_test_logits(nn_name, dataset_name, batch_size, gpu, *args, **kwargs):
@@ -452,8 +471,32 @@ def get_and_save_test_logits(nn_name, dataset_name, batch_size, gpu, *args, **kw
     return logits
 
 
+def get_and_save_test_features(nn_name, dataset_name, batch_size, gpu, *args, **kwargs):
+    os.makedirs(
+        "{}/tensors/{}/{}".format(ROOT, nn_name, dataset_name),
+        exist_ok=True,
+    )
+    model = load_pre_trained_nn(nn_name, gpu)
+    in_dataset_name = get_in_dataset_name(nn_name)
+    dataloader = test_dataloader(dataset_name, in_dataset_name, batch_size=batch_size)
+    features, targets = hidden_features_pred_loop(
+        model, dataloader, gpu, *args, **kwargs
+    )
+    torch.save(
+        features,
+        "{}/tensors/{}/{}/features_test.pt".format(ROOT, nn_name, dataset_name),
+    )
+    features = load_test_features(nn_name, dataset_name)
+    return features
+
+
 def load_test_logits(nn_name, dataset_name):
     filename = "{}/tensors/{}/{}/logits_test.pt".format(ROOT, nn_name, dataset_name)
+    return load_tensor(filename)
+
+
+def load_test_features(nn_name, dataset_name):
+    filename = "{}/tensors/{}/{}/features_test.pt".format(ROOT, nn_name, dataset_name)
     return load_tensor(filename)
 
 
@@ -494,18 +537,66 @@ def get_and_save_train_logits(nn_name, dataset_name, batch_size, gpu, *args, **k
     return logits
 
 
+def get_and_save_train_features(
+    nn_name, dataset_name, batch_size, gpu, *args, **kwargs
+):
+    os.makedirs(
+        "{}/tensors/{}/{}".format(ROOT, nn_name, dataset_name),
+        exist_ok=True,
+    )
+    model = load_pre_trained_nn(nn_name, gpu)
+    in_dataset_name = get_in_dataset_name(nn_name)
+    dataloader = train_dataloader(
+        dataset_name,
+        in_dataset_name,
+        batch_size=batch_size,
+    )
+    features, targets = hidden_features_pred_loop(
+        model, dataloader, gpu, *args, **kwargs
+    )
+    torch.save(
+        features,
+        "{}/tensors/{}/{}/features_train.pt".format(ROOT, nn_name, dataset_name),
+    )
+    features = load_train_features(nn_name, dataset_name)
+    return features
+
+
 def load_train_logits(nn_name, dataset_name):
     filename = "{}/tensors/{}/{}/logits_train.pt".format(ROOT, nn_name, dataset_name)
     return load_tensor(filename)
 
 
-def load_logits_centroid(nn_name, dataset_name, new=False):
+def load_train_features(nn_name, dataset_name):
+    filename = "{}/tensors/{}/{}/features_train.pt".format(ROOT, nn_name, dataset_name)
+    return load_tensor(filename)
+
+
+def load_train_targets(nn_name, dataset_name):
+    filename = "{}/tensors/{}/{}/targets_train.pt".format(ROOT, nn_name, dataset_name)
+    return load_tensor(filename)
+
+
+def load_logits_centroid(nn_name, dataset_name, method_name=None, new=False, cap=1000):
     # check file existence
     filename = "{}/tensors/centroid_logits_{}_{}.pt".format(ROOT, nn_name, dataset_name)
     if new:
-        filename = "{}/tensors/ige_centroid_logits_{}_{}.pt".format(
-            ROOT, nn_name, dataset_name
+        filename = "{}/tensors/{}/{}/{}_centroid_logits.pt".format(
+            ROOT, nn_name, dataset_name, method_name
         )
+    if os.path.isfile(filename):
+        centroid = torch.load(filename, map_location=DEVICE)
+    else:
+        logger.warning("file not found. Returning None")
+        return None
+    return centroid.detach()
+
+
+def load_test_logits_centroid(nn_name, dataset_name, cap=1000):
+    # check file existence
+    filename = "{}/tensors/{}/{}/ige_centroid_logits_{}.pt".format(
+        ROOT, nn_name, dataset_name, cap
+    )
     if os.path.isfile(filename):
         centroid = torch.load(filename, map_location=DEVICE)
     else:
@@ -528,11 +619,15 @@ def get_feature_list(model, gpu):
     return feature_list
 
 
-def load_hidden_features_cov(nn_name, dataset_name, diag=False, cap=None):
+def load_hidden_features_cov(
+    nn_name, dataset_name, diag=False, cap=None, per_class=False
+):
     mat_type = ""
     if diag:
         mat_type = "_diag"
     cap_name = "_{}".format(cap) if cap is not None else ""
+    if per_class:
+        cap_name += "_per_class"
 
     filename = "{}/tensors/{}/{}/hidden_features{}_cov_mat{}.pt".format(
         ROOT, nn_name, dataset_name, mat_type, cap_name
@@ -545,8 +640,12 @@ def load_hidden_features_cov(nn_name, dataset_name, diag=False, cap=None):
         return
 
 
-def load_hidden_features_inv(nn_name, dataset_name, diag=False, cap=None):
+def load_hidden_features_inv(
+    nn_name, dataset_name, diag=False, cap=None, per_class=False
+):
     cap_name = "_{}".format(cap) if cap is not None else ""
+    if per_class:
+        cap_name += "_per_class"
     mat_type = ""
     if diag:
         mat_type = "_diag"

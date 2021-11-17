@@ -1,9 +1,10 @@
 import os
-import optuna
-from optuna.trial import TrialState
-import src.measures as m
-import utils.file_manager as fm
 
+import optuna
+import src.measures as m
+from optuna.trial import TrialState
+
+import utils.file_manager as fm
 
 MODELS = [
     "densenet10",
@@ -13,10 +14,28 @@ MODELS = [
     "densenet_svhn",
     "resnet_svhn",
 ]
+DATASETS = [
+    "iSUN",
+    "SVHN",
+    "Imagenet_resize",
+    "LSUN_resize",
+    "CIFAR10",
+    "CIFAR100",
+    "Textures",
+    "Places365",
+    "Chars74K",
+    "gaussian_noise_dataset",
+]
 METHOD_REGISTRY = {
     "igeoodlogits": m.igeoodlogits,
+    "min_igeoodlogits": m.min_igeoodlogits,
     "odin": m.odin,
     "energy": m.energy,
+    "kl_score_min": m.kl_score_min,
+    "kl_score_sum": m.kl_score_sum,
+}
+WB_METHOD_REGISTRY = {
+    "mahalanobis": "mahalanobis",
 }
 
 

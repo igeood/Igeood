@@ -4,11 +4,10 @@ import numpy as np
 import sklearn
 import sklearn.covariance
 import torch
-from torch.autograd import Variable
-
 import utils.data_and_nn_loader as dl
-
+from torch.autograd import Variable
 from utils.logger import logger
+
 from src.measures import fisher_rao_logits_distance
 
 ROOT = dl.ROOT

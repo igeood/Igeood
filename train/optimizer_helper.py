@@ -1,6 +1,6 @@
-import torch.optim as optim
 import inspect
 
+import torch.optim as optim
 
 optimizer_registry = {
     "adam": optim.Adam,

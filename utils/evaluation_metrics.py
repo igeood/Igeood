@@ -1,7 +1,8 @@
-from utils.logger import logger
 import numpy as np
 import sklearn.metrics as skm
+
 import utils.file_manager as fm
+from utils.logger import logger
 
 RECALL_LEVEL = 0.95
 

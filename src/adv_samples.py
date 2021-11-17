@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import utils.data_and_nn_loader as dl
 import utils.file_manager as fm
+from torch.autograd import Variable
 from tqdm import tqdm
 
 ROOT = dl.ROOT

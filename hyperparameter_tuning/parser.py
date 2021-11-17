@@ -1,5 +1,6 @@
 import argparse
 
+from hyperparameter_tuning.utils import METHOD_REGISTRY, MODELS
 
 parser = argparse.ArgumentParser(
     description="Tune hyperparameters of an OOD detection method",
@@ -8,6 +9,7 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument(
+    # "--nn-name",
     "--nn-names",
     nargs="+",
     default=None,

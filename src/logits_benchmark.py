@@ -1,17 +1,16 @@
 import torch
 import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
-from tqdm import tqdm
-
 import utils.data_and_nn_loader as dl
 import utils.evaluation_metrics as em
 import utils.file_manager as fm
+from torch.autograd import Variable
+from tqdm import tqdm
 
 ROOT = dl.ROOT
-from src.measures import *
-from utils.logger import timing, logger
-from src.estimators import run_logits_centroid_estimator
+from utils.logger import logger, timing
 
+from src.estimators import run_logits_centroid_estimator
+from src.measures import *
 
 cudnn.benchmark = True
 

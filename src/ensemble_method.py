@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-from sklearn.linear_model import LogisticRegressionCV
-
-import utils.evaluation_metrics as em
-from utils.logger import logger
 import sklearn.metrics as skm
+import utils.evaluation_metrics as em
+from sklearn.linear_model import LogisticRegressionCV
+from utils.logger import logger
 
 
 class EnsembleMethod(ABC):

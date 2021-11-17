@@ -3,28 +3,37 @@ import time
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
-
 import utils.data_and_nn_loader as dl
 import utils.evaluation_metrics as em
 import utils.file_manager as fm
-from utils.logger import logger
-from src.estimators import hidden_feature_estimator, run_logits_centroid_estimator
-from src.measures import *
-from src.ensemble_method import *
-from utils.logger import timing
+from torch.autograd import Variable
+from utils.logger import logger, timing
 
+from src.ensemble_method import *
+from src.estimators import (hidden_feature_estimator,
+                            run_logits_centroid_estimator)
+from src.measures import *
 
 cudnn.benchmark = True
 
 
-def get_prefix(cov_mat_ood, logits_flag):
+def get_prefix(
+    cov_mat_ood,
+    means_ood,
+    logits_flag,
+    per_class=False,
+    distance=fr_distance_multivariate_gaussian,
+):
     # File naming
     prefix = "igeoodfeatures"
     if cov_mat_ood is not None:
         prefix += "cov" + cov_mat_ood
     if logits_flag:
         prefix += "combinelogits"
+    if per_class:
+        prefix += "_per_class"
+    if means_ood:
+        prefix += "_means_ood"
     return prefix
 
 
@@ -39,12 +48,15 @@ def main(
     in_dataset_name,
     out_dataset_name,
     cov_mat_ood,
+    means_ood,
     temperature,
     eps,
     batch_size,
     gpu,
     rewrite=False,
     logits_flag=True,
+    per_class=False,
+    distance=fr_distance_multivariate_gaussian,
 ):
     if cov_mat_ood == "same":
         cov_mat_ood = out_dataset_name
@@ -53,7 +65,7 @@ def main(
     if out_dataset_name == "ADV":
         out_dataset_name += nn_name
 
-    prefix = get_prefix(cov_mat_ood, logits_flag)
+    prefix = get_prefix(cov_mat_ood, means_ood, logits_flag, per_class, distance)
     filename = get_filename(prefix, temperature, eps)
 
     # in_dataset_name = dl.get_in_dataset_name(nn_name)
@@ -70,9 +82,12 @@ def main(
             gpu,
             rewrite,
             cov_mat_ood,
+            means_ood,
             logits_flag,
             temperature,
             eps,
+            per_class=per_class,
+            distance=distance,
         )
         fw = fm.make_score_file(nn_name, in_dataset_name, filename)
         fm.write_score_file(fw, in_scores)
@@ -90,9 +105,12 @@ def main(
             gpu,
             rewrite,
             cov_mat_ood,
+            means_ood,
             logits_flag,
             temperature,
             eps,
+            per_class=per_class,
+            distance=distance,
         )
         fw = fm.make_score_file(nn_name, out_dataset_name, filename)
         fm.write_score_file(fw, out_scores)
@@ -120,9 +138,12 @@ def main(
                 gpu,
                 rewrite,
                 cov_mat_ood,
+                means_ood,
                 logits_flag,
                 temperature,
                 eps,
+                per_class=per_class,
+                distance=distance,
             )
             fw = fm.make_score_file(nn_name, val_dataset_name, val_filename)
             fm.write_score_file(fw, val_scores)
@@ -186,10 +207,13 @@ def igeoodwb_score(
     gpu,
     rewrite=False,
     cov_mat_ood=None,
+    means_ood=None,
     logits_flag=True,
     temperature=1,
     eps=0,
     dataloader=None,
+    per_class=False,
+    distance=fr_distance_multivariate_gaussian,
 ):
     in_dataset_name = dl.get_in_dataset_name(nn_name)
 
@@ -199,16 +223,18 @@ def igeoodwb_score(
     model.eval()
 
     # Matrices
-    sample_mean = dl.load_hidden_features_means(nn_name, in_dataset_name)
-    cov_matrix_in = dl.load_hidden_features_cov(nn_name, in_dataset_name, True, None)
-    if cov_matrix_in is None or sample_mean is None or rewrite:
+    sample_mean_in = dl.load_hidden_features_means(nn_name, in_dataset_name)
+    cov_matrix_in = dl.load_hidden_features_cov(
+        nn_name, in_dataset_name, True, None, per_class=per_class
+    )
+    if cov_matrix_in is None or sample_mean_in is None or rewrite:
         hidden_feature_estimator(
             nn_name, in_dataset_name, batch_size, gpu, True, True, None
         )
         cov_matrix_in = dl.load_hidden_features_cov(
-            nn_name, in_dataset_name, True, None
+            nn_name, in_dataset_name, True, None, per_class=per_class
         )
-        sample_mean = dl.load_hidden_features_means(nn_name, in_dataset_name)
+        sample_mean_in = dl.load_hidden_features_means(nn_name, in_dataset_name)
 
     if cov_mat_ood is not None:
         if cov_mat_ood == "ADV":
@@ -237,6 +263,26 @@ def igeoodwb_score(
     else:
         cov_matrix_out = None
 
+    if means_ood is not None:
+        sample_mean_out = dl.load_hidden_features_means(
+            nn_name, cov_val_dataset_name, cap=cap
+        )
+        if sample_mean_out is None or rewrite:
+            hidden_feature_estimator(
+                nn_name,
+                cov_val_dataset_name,
+                batch_size,
+                gpu,
+                False,
+                True,
+                cap,
+            )
+            sample_mean_out = dl.load_hidden_features_means(
+                nn_name, cov_val_dataset_name, cap=cap
+            )
+    else:
+        sample_mean_out = sample_mean_in
+
     # Logits
     logits_centroids = None
     if logits_flag:
@@ -258,15 +304,17 @@ def igeoodwb_score(
         model,
         dataloader,
         num_classes,
-        sample_mean,
+        sample_mean_in,
         cov_matrix_in,
         gpu,
+        sample_mean_out,
         cov_matrix_out,
         logits_flag,
         temperature,
         eps,
         in_dataset_name,
         logits_centroids,
+        distance=distance,
     )
 
 
@@ -274,20 +322,22 @@ def igeoodwb(
     model,
     dataloader,
     num_classes,
-    sample_mean,
+    sample_mean_in,
     cov_mat_in,
     gpu,
+    sample_mean_out=None,
     cov_mat_out=None,
     logits_flag=True,
     temperature=None,
     eps=None,
     in_dataset_name=None,
     centroid_logits=None,
+    distance=fr_distance_multivariate_gaussian,
 ):
     t0 = time.time()
     length = len(dataloader)
     model.eval()
-    n_layers = len(sample_mean)
+    n_layers = len(sample_mean_in)
 
     igeoodfeature_scores = {i: [] for i in range(n_layers)}
     igeoodlogits_scores = []
@@ -331,11 +381,12 @@ def igeoodwb(
                 # Compute Fisher-Rao score
                 score1 = igeoodfeature(
                     out_feature,
-                    sample_mean,
+                    sample_mean_in,
                     cov_mat_in,
                     cov_mat_in,
                     layer_idx,
                     num_classes,
+                    distance=distance,
                 )
                 score1, _ = torch.min(score1, dim=1)
                 score1 = score1.detach().cpu().numpy().reshape(-1, 1)
@@ -343,11 +394,12 @@ def igeoodwb(
                 if cov_mat_out is not None:
                     score2 = igeoodfeature(
                         out_feature,
-                        sample_mean,
+                        sample_mean_out,
                         cov_mat_in,
                         cov_mat_out,
                         layer_idx,
                         num_classes,
+                        distance=distance,
                     )
                     score2, _ = torch.min(score2, dim=1)
                     score2 = score2.detach().cpu().numpy().reshape(-1, 1)

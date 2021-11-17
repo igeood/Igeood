@@ -1,19 +1,18 @@
 """Train a model using Pytorch's DistributedDataParallel"""
 import os
-from train.optimizer_helper import (
-    OPTIMIZERS,
-    SCHEDULERS,
-    get_optimizer_cls,
-    get_scheduler,
-)
-import torch
-import torch.utils.data
-import torch.nn as nn
-from tqdm import tqdm
-from datetime import datetime
-from train.registry import get_dataset, get_model, get_num_classes, MODELS, DATASETS
-import train.config_helper as config
 import subprocess
+from datetime import datetime
+
+import torch
+import torch.nn as nn
+import torch.utils.data
+from tqdm import tqdm
+
+import train.config_helper as config
+from train.optimizer_helper import (OPTIMIZERS, SCHEDULERS, get_optimizer_cls,
+                                    get_scheduler)
+from train.registry import (DATASETS, MODELS, get_dataset, get_model,
+                            get_num_classes)
 
 
 def add_dataset_arguments(dataset_parser):
@@ -269,8 +268,9 @@ def get_gpu_memory_map():
 
 
 def seed_worker(worker_id):
-    import numpy as np
     import random
+
+    import numpy as np
 
     worker_seed = torch.initial_seed() % 2 ** 32
     np.random.seed(worker_seed)
@@ -398,8 +398,9 @@ def train_step():
 
 
 def make_reproducible(seed: int):
-    import numpy as np
     import random
+
+    import numpy as np
     import torch
     import torch.backends.cudnn as cudnn
 

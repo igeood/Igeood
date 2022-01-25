@@ -9,7 +9,12 @@ from utils.logger import timing
 import numpy as np
 import src.logits_benchmark
 import itertools
-from hyperparameter_tuning.utils import get_method, report_results, write_results, DATASETS
+from hyperparameter_tuning.utils import (
+    get_method,
+    report_results,
+    write_results,
+    DATASETS,
+)
 from hyperparameter_tuning.parser import parser
 
 # EPS = [0, 0.0005, 0.001, 0.0014, 0.0015, 0.002, 0.0025, 0.003, 0.0035, 0.004]

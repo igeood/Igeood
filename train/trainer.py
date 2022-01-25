@@ -9,10 +9,13 @@ import torch.utils.data
 from tqdm import tqdm
 
 import train.config_helper as config
-from train.optimizer_helper import (OPTIMIZERS, SCHEDULERS, get_optimizer_cls,
-                                    get_scheduler)
-from train.registry import (DATASETS, MODELS, get_dataset, get_model,
-                            get_num_classes)
+from train.optimizer_helper import (
+    OPTIMIZERS,
+    SCHEDULERS,
+    get_optimizer_cls,
+    get_scheduler,
+)
+from train.registry import DATASETS, MODELS, get_dataset, get_model, get_num_classes
 
 
 def add_dataset_arguments(dataset_parser):

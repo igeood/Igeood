@@ -57,28 +57,6 @@ The in-distribution datasets CIFAR-10, CIFAR-100 and SVHN, are directly download
 
 The pre-trained models for reproducing results is available for download in the script `download.sh`. They will be downloaded to the folder `pre_trained/`.
 
-```shell
-# Models
-mkdir pre_trained
-cd pre_trained
-
-# DenseNet-BC trained on CIFAR-10
-wget https://www.dropbox.com/s/wr4kjintq1tmorr/densenet10.pth.tar.gz
-tar -xvzf densenet10.pth.tar.gz
-# DenseNet-BC trained on CIFAR-100
-wget https://www.dropbox.com/s/vxuv11jjg8bw2v9/densenet100.pth.tar.gz
-tar -xvzf densenet100.pth.tar.gz
-# DenseNet-BC trained on SVHN
-wget https://www.dropbox.com/s/9ol1h2tb3xjdpp1/densenet_svhn.pth
-
-# ResNet34 trained on CIFAR-10
-wget https://www.dropbox.com/s/ynidbn7n7ccadog/resnet_cifar10.pth
-# ResNet34 trained on CIFAR-100
-wget https://www.dropbox.com/s/yzfzf4bwqe4du6w/resnet_cifar100.pth
-# ResNet34 trained on SVHN
-wget https://www.dropbox.com/s/uvgpgy9pu7s9ps2/resnet_svhn.pth
-```
-
 ## Evaluation
 
 We provide a simple `cli` tool via the file `eval.py` to reproduce the main results of this paper.
@@ -86,7 +64,7 @@ We provide a simple `cli` tool via the file `eval.py` to reproduce the main resu
 For example, to run IGEOOD OOD detection method in a Black-Box setting on DenseNet trained on CIFAR-10 with Tiny-ImageNet as out-of-distribution dataset, run:
 
 ```shell
-python eval.py igeoodlogits --nn densenet --in-dataset cifar10 --out-dataset Imagenet_resize --temperature 5.3 --epsilon 0 --gpu None
+python eval.py igeoodlogits --nn densenet --in-dataset cifar10 --out-dataset Imagenet_resize --temperature 5.3 --epsilon 0 
 ```
 
 Refer to the documentation below for the `cli` tool.
@@ -109,3 +87,19 @@ example: python eval.py igeoodlogits -nn densenet10 -o Imagenet_resize
 ```
 
 The *core* implementation files of the OOD detection methods is in the folder `src/`.
+
+## Citation
+
+Bibtex:
+
+```text
+@inproceedings{
+anonymous2022igeood,
+title={Igeood: An Information Geometry Approach to Out-of-Distribution Detection},
+author={Anonymous},
+booktitle={Submitted to The Tenth International Conference on Learning Representations },
+year={2022},
+url={https://openreview.net/forum?id=mfwdY3U_9ea},
+note={under review}
+}
+```

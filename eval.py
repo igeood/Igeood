@@ -1,8 +1,6 @@
 import argparse
 import itertools
 
-import torch.multiprocessing
-
 import utils.data_and_nn_loader as dl
 from src.adv_samples import generate_fgsm_adv_samples
 from src.ensemble_method import AdvWeightRegression, WeightRegression
@@ -10,8 +8,6 @@ from src.igeood import main as igeood_main
 from src.logits_benchmark import main as logits_main
 from src.mahalanobis import main as mahalanobis_main
 from utils.logger import logger
-
-torch.multiprocessing.set_sharing_strategy("file_system")
 
 parser = argparse.ArgumentParser(
     description="Reproduce results from IGEOOD: An Information Geometry Approach to Out-of-Distribution Detection.",
